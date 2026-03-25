@@ -13,6 +13,7 @@ const sharedFilesDir = path.join(os.tmpdir(), 'electron-airdrop-shared');
 const fileDatabase = {};
 const deviceId = uuidv4();
 const DISCOVERY_PORT = 45678;
+const MULTICAST_ADDR = '239.255.45.67';
 const peers = {};
 
 let mainWindow;
@@ -99,19 +100,21 @@ function broadcastPresence() {
     JSON.stringify({ id: deviceId, name: os.hostname(), port: serverPort, ip: getLocalIP() })
   );
   try {
-    udpSocket.send(msg, 0, msg.length, DISCOVERY_PORT, '255.255.255.255');
+    udpSocket.send(msg, 0, msg.length, DISCOVERY_PORT, MULTICAST_ADDR);
   } catch (_) {}
 }
 
 function startDiscovery() {
   udpSocket.bind(DISCOVERY_PORT, () => {
-    udpSocket.setBroadcast(true);
+    try { udpSocket.addMembership(MULTICAST_ADDR); } catch (_) {}
+    udpSocket.setMulticastTTL(4);
     broadcastPresence();
     setInterval(broadcastPresence, 3000);
     setInterval(() => {
       const now = Date.now();
       let changed = false;
       Object.keys(peers).forEach((id) => {
+        if (id.startsWith('manual-')) return; // manual peers don't time out
         if (now - peers[id].lastSeen > 10000) {
           delete peers[id];
           changed = true;
@@ -170,6 +173,28 @@ ipcMain.handle('get-local-ip', () => getLocalIP());
 ipcMain.handle('get-peers', () =>
   Object.values(peers).map(({ id, name, ip, port }) => ({ id, name, ip, port }))
 );
+
+ipcMain.handle('add-manual-peer', async (event, { ip, port }) => {
+  return new Promise((resolve) => {
+    const req = http.get({ hostname: ip, port, path: '/api/files', timeout: 4000 }, (res) => {
+      let data = '';
+      res.on('data', (chunk) => (data += chunk));
+      res.on('end', () => {
+        try {
+          JSON.parse(data); // just validate it's the right server
+          const manualId = `manual-${ip}:${port}`;
+          peers[manualId] = { id: manualId, name: `${ip}:${port}`, ip, port, lastSeen: Date.now() };
+          if (mainWindow) mainWindow.webContents.send('peers-updated');
+          resolve({ success: true });
+        } catch (_) {
+          resolve({ success: false, error: 'Not a valid AirDrop peer' });
+        }
+      });
+    });
+    req.on('error', (err) => resolve({ success: false, error: err.message }));
+    req.on('timeout', () => { req.destroy(); resolve({ success: false, error: 'Connection timed out' }); });
+  });
+});
 
 ipcMain.handle('share-file', async (event, filePath) => {
   try {

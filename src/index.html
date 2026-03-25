@@ -79,7 +79,40 @@
     background: var(--surface2);
     border-radius: 20px;
     border: 1px solid var(--border);
+    cursor: pointer;
+    user-select: none;
   }
+  .ip-badge:hover { border-color: var(--accent); color: var(--accent2); }
+
+  /* Manual connect */
+  .manual-connect {
+    display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+  }
+  .manual-input {
+    flex: 1; min-width: 180px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 7px 12px;
+    color: var(--text);
+    font-size: 13px;
+    outline: none;
+  }
+  .manual-input:focus { border-color: var(--accent); }
+  .manual-input::placeholder { color: var(--muted); }
+  .btn-connect {
+    padding: 7px 16px;
+    background: var(--accent);
+    color: #fff;
+    border: none; border-radius: 8px;
+    font-size: 13px; font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.15s;
+    white-space: nowrap;
+  }
+  .btn-connect:hover { opacity: 0.85; }
+  .btn-connect:disabled { opacity: 0.4; cursor: not-allowed; }
+  .manual-hint { font-size: 11px; color: var(--muted); margin-top: 6px; }
 
   main {
     flex: 1;
@@ -309,7 +342,7 @@
     </div>
     <div style="display:flex;align-items:center;gap:10px;">
       <div class="status-dot"></div>
-      <span id="ip-badge" class="ip-badge">—</span>
+      <span id="ip-badge" class="ip-badge" title="Click to copy" onclick="copyIP()">—</span>
     </div>
   </header>
 
@@ -322,6 +355,16 @@
           Scanning for devices on your network…
         </div>
       </div>
+    </section>
+
+    <section>
+      <div class="section-label">Connect Manually</div>
+      <div class="manual-connect">
+        <input id="manual-ip-input" class="manual-input" type="text"
+          placeholder="Other device's IP  e.g. 192.168.1.42" />
+        <button class="btn-connect" id="btn-connect" onclick="connectManual()">Connect</button>
+      </div>
+      <div class="manual-hint">On networks with device isolation (eduroam, enterprise WiFi), auto-discovery is blocked. Share your IP (shown top-right) with the other person and enter theirs here.</div>
     </section>
 
     <section>
@@ -413,6 +456,57 @@ function toast(msg, type = 'success') {
   setTimeout(() => el.remove(), 3500);
 }
 
+// ── Manual connect ────────────────────────────────────────────────────────────
+
+let localIP = '';
+let localIPPort = '';
+
+function copyIP() {
+  if (!localIPPort) return;
+  navigator.clipboard.writeText(localIPPort).then(() => toast('Address copied — share it with the other device'));
+}
+
+async function connectManual() {
+  const raw = document.getElementById('manual-ip-input').value.trim();
+  if (!raw) return;
+
+  // Accept "ip:port" or plain "ip" (default port 45679 — we'll probe common range)
+  let ip, port;
+  if (raw.includes(':')) {
+    [ip, port] = raw.split(':');
+    port = parseInt(port, 10);
+  } else {
+    ip = raw;
+    port = null;
+  }
+
+  const btn = document.getElementById('btn-connect');
+  btn.disabled = true;
+  btn.textContent = 'Connecting…';
+
+  if (port) {
+    const result = await window.electronAPI.addManualPeer({ ip, port });
+    if (result.success) {
+      toast(`Connected to ${ip}:${port}`);
+      document.getElementById('manual-ip-input').value = '';
+      await refresh();
+    } else {
+      toast(`Could not connect: ${result.error}`, 'error');
+    }
+  } else {
+    // Try to find the port by probing a range
+    let connected = false;
+    for (let p = 3000; p <= 65000 && !connected; p += 1) {
+      // This would be too slow — just ask user to include port
+      break;
+    }
+    toast('Please include the port number (shown on the other device next to its IP)', 'error');
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Connect';
+}
+
 // ── State ─────────────────────────────────────────────────────────────────────
 
 let peers        = [];
@@ -425,13 +519,18 @@ let initialized  = false;
 // ── Init ──────────────────────────────────────────────────────────────────────
 
 async function init() {
-  const [name, ip] = await Promise.all([
+  const [name, ip, port] = await Promise.all([
     window.electronAPI.getDeviceName(),
     window.electronAPI.getLocalIp(),
+    window.electronAPI.getServerPort(),
   ]);
 
+  localIP = ip;
+  localIPPort = `${ip}:${port}`;
   document.getElementById('device-badge').textContent = name;
-  document.getElementById('ip-badge').textContent = ip;
+  const ipBadge = document.getElementById('ip-badge');
+  ipBadge.textContent = `${ip}:${port}`;
+  ipBadge.title = `Your address — click to copy`;
 
   await refresh();
   initialized = true;

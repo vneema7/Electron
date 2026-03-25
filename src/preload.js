@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   fetchPeerFiles:   (opts)   => ipcRenderer.invoke('fetch-peer-files', opts),
   downloadPeerFile: (opts)   => ipcRenderer.invoke('download-peer-file', opts),
   removeSharedFile: (id)     => ipcRenderer.invoke('remove-shared-file', id),
+  addManualPeer:    (opts)   => ipcRenderer.invoke('add-manual-peer', opts),
   getFilePath:      (file)   => webUtils.getPathForFile(file),
 
   onFilesUpdated: (cb) => {
