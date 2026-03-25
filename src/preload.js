@@ -1,4 +1,4 @@
-const { contextBridge, ipcRenderer } = require('electron');
+const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
 contextBridge.exposeInMainWorld('electronAPI', {
   getServerPort:    ()       => ipcRenderer.invoke('get-server-port'),
@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   fetchPeerFiles:   (opts)   => ipcRenderer.invoke('fetch-peer-files', opts),
   downloadPeerFile: (opts)   => ipcRenderer.invoke('download-peer-file', opts),
   removeSharedFile: (id)     => ipcRenderer.invoke('remove-shared-file', id),
+  getFilePath:      (file)   => webUtils.getPathForFile(file),
 
   onFilesUpdated: (cb) => {
     ipcRenderer.on('files-updated', cb);

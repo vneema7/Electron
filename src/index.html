@@ -36,7 +36,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 14px 20px;
+    padding: 14px 20px 14px 80px;
     background: var(--surface);
     border-bottom: 1px solid var(--border);
     -webkit-app-region: drag;
@@ -592,8 +592,9 @@ document.addEventListener('drop', async (e) => {
   if (!files.length) return;
 
   for (const file of files) {
-    if (!file.path) { toast('No file path available', 'error'); continue; }
-    const result = await window.electronAPI.shareFile(file.path);
+    const filePath = window.electronAPI.getFilePath(file);
+    if (!filePath) { toast('No file path available', 'error'); continue; }
+    const result = await window.electronAPI.shareFile(filePath);
     if (result.success) {
       toast(`"${result.name}" is now shared`);
     } else {

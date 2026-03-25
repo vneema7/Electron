@@ -11,33 +11,32 @@ A desktop file-sharing application for Windows/Mac/Linux that works like Apple's
 - **Auto-cleanup**: Old files are automatically removed after 1 hour
 - **Secure**: Uses Express server for local network sharing
 
-## Prerequisites
+## Download
 
-- Node.js (v14 or higher)
-- npm (comes with Node.js)
+Grab the latest `.dmg` from the [Releases](../../releases) page, open it, and drag the app to your Applications folder. No setup needed.
 
-## Installation
+> **Note:** Since the app isn't code-signed, macOS may show an "unidentified developer" warning. To open it anyway: right-click the app → **Open**.
 
-1. Clone or open the project folder:
+## Run from Source
+
+**Prerequisites:** Node.js (v14+) and npm
+
 ```bash
-cd /Users/mahirarora/Documents/Electron
-```
-
-2. Install dependencies:
-```bash
+git clone <this-repo>
+cd <repo-folder>
 npm install
-```
-
-## Usage
-
-### Start the app:
-```bash
 npm start
 ```
 
 ### Development mode (with DevTools):
 ```bash
 npm run dev
+```
+
+### Build a distributable `.dmg`:
+```bash
+npm run build
+# Output: dist/AirDrop-*.dmg
 ```
 
 ## How It Works
@@ -69,11 +68,11 @@ index.html       - UI with drag-drop interface
 ## Troubleshooting
 
 **Files not showing up:**
-- Make sure all instances are running on the same network
+- Make sure all devices are on the same Wi-Fi network
 - Check that the Express server is running (look in DevTools console)
 
-**Can't drag files:**
-- Try clicking the drop zone and browsing for a file instead
+**"No file path available" error:**
+- Make sure you're running Electron 41+. Older builds used `file.path` which is no longer supported.
 
 **Server port errors:**
 - The app automatically finds an available port. Check the console for the port number.
